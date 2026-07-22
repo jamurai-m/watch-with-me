@@ -3,13 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint"
+    "dev": "NODE_OPTIONS=--openssl-legacy-provider next dev",
+    "build": "NODE_OPTIONS=--openssl-legacy-provider next build",
+    "start": "NODE_OPTIONS=--openssl-legacy-provider next start",
+    "lint": "NODE_OPTIONS=--openssl-legacy-provider next lint"
   },
   "dependencies": {
-    "next": "^9.3.3",
+    "next": "14.2.15",
     "react": "18.3.1",
     "react-dom": "18.3.1"
   },
@@ -19,7 +19,7 @@
     "@types/react-dom": "18.3.0",
     "autoprefixer": "10.4.20",
     "eslint": "8.57.0",
-    "eslint-config-next": "^16.2.11",
+    "eslint-config-next": "14.2.15",
     "postcss": "8.4.7",
     "tailwindcss": "3.4.10",
     "typescript": "5.5.4"

@@ -11,9 +11,10 @@ const sampleMovies = [
 
 function RoomPageContent() {
   const searchParams = useSearchParams();
-  const room = searchParams.get('room') ?? 'ROOM';
-  const name = searchParams.get('name') ?? 'Guest';
-  const isHost = searchParams.get('host') === '1';
+  const params = searchParams?.get ? searchParams : null;
+  const room = params?.get('room') ?? 'ROOM';
+  const name = params?.get('name') ?? 'Guest';
+  const isHost = params?.get('host') === '1';
 
   const [selectedMovie, setSelectedMovie] = useState(sampleMovies[0].title);
   const [isPlaying, setIsPlaying] = useState(false);

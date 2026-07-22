@@ -1,7 +1,6 @@
 import './globals.css';
-import type { Metadata } from 'next';
 
-export const metadata: Metadata = {
+export const metadata = {
   title: 'Watch With Me',
   description: 'A simple app for watching movies together with synced playback.',
 };

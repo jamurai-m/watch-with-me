@@ -209,6 +209,10 @@ node_modules/
 out/
 coverage/
 .turbo/
+.env.local
+.env.development.local
+.env.production.local
+.env.test.local
 
 # Ruff stuff:
 .ruff_cache/

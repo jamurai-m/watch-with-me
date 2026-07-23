@@ -3,11 +3,9 @@
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 
-const sampleMovies = [
-  { title: 'The Matrix', year: '1999', badge: 'Classic Sci-Fi' },
-  { title: 'Interstellar', year: '2014', badge: 'Space Epic' },
-  { title: 'La La Land', year: '2016', badge: 'Musical Romance' },
-];
+import { MoviePreviewCard } from '../components/movie-preview-card';
+import { MovieSelect } from '../components/movie-select';
+import { getActiveMovie, sampleMovies } from '../lib/sample-data';
 
 function RoomPageContent() {
   const searchParams = useSearchParams();
@@ -21,10 +19,7 @@ function RoomPageContent() {
   const [currentTime, setCurrentTime] = useState(0);
   const [participants, setParticipants] = useState<string[]>([]);
 
-  const activeMovie = useMemo(
-    () => sampleMovies.find((movie) => movie.title === selectedMovie) ?? sampleMovies[0],
-    [selectedMovie]
-  );
+  const activeMovie = useMemo(() => getActiveMovie(selectedMovie), [selectedMovie]);
 
   useEffect(() => {
     setParticipants([isHost ? `${name} (host)` : name, 'Mina', 'Jules']);
@@ -53,15 +48,7 @@ function RoomPageContent() {
 
         <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
           <section className="space-y-4 rounded-3xl border border-slate-800 bg-slate-900/80 p-5">
-            <div className="aspect-video overflow-hidden rounded-2xl border border-slate-800 bg-slate-800">
-              <div className="flex h-full items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.2),_transparent_60%)] p-6">
-                <div className="text-center">
-                  <p className="text-sm uppercase tracking-[0.3em] text-cyan-400">Now playing</p>
-                  <h2 className="mt-2 text-3xl font-semibold text-white">{activeMovie.title}</h2>
-                  <p className="mt-2 text-slate-400">{activeMovie.year} • {activeMovie.badge}</p>
-                </div>
-              </div>
-            </div>
+            <MoviePreviewCard eyebrow="Now playing" movie={activeMovie} />
 
             <div className="flex flex-wrap items-center gap-3">
               <button
@@ -85,21 +72,13 @@ function RoomPageContent() {
 
           <aside className="space-y-4">
             <div className="rounded-3xl border border-slate-800 bg-slate-900/80 p-5">
-              <label className="mb-2 block text-sm text-slate-400" htmlFor="movie-select">
-                Movie selection
-              </label>
-              <select
+              <MovieSelect
                 id="movie-select"
+                label="Movie selection"
                 value={selectedMovie}
-                onChange={(event) => setSelectedMovie(event.target.value)}
-                className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100"
-              >
-                {sampleMovies.map((movie) => (
-                  <option key={movie.title} value={movie.title}>
-                    {movie.title}
-                  </option>
-                ))}
-              </select>
+                movies={sampleMovies}
+                onChange={setSelectedMovie}
+              />
             </div>
 
             <div className="rounded-3xl border border-slate-800 bg-slate-900/80 p-5">

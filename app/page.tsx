@@ -3,10 +3,10 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+import { createRoom as createRoomRequest, joinRoom as joinRoomRequest } from './api-client';
 import { MoviePreviewCard } from './components/movie-preview-card';
 import { MovieSelect } from './components/movie-select';
 import { RoomAccessForm } from './components/room-access-form';
-import { generateRoomCode } from './lib/room-code';
 import { getActiveMovie, sampleMovies } from './lib/sample-data';
 
 export default function HomePage() {
@@ -14,20 +14,37 @@ export default function HomePage() {
   const [name, setName] = useState('You');
   const [roomInput, setRoomInput] = useState('');
   const [selectedMovie, setSelectedMovie] = useState(sampleMovies[0].title);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const activeMovie = useMemo(() => getActiveMovie(selectedMovie), [selectedMovie]);
 
-  const createRoom = () => {
+  const createRoom = async () => {
     const safeName = name.trim() || 'Guest';
-    const room = generateRoomCode();
-    router.push(`/room?room=${room}&name=${encodeURIComponent(safeName)}&host=1`);
+    setIsSubmitting(true);
+    setErrorMessage('');
+    try {
+      const room = await createRoomRequest(safeName);
+      router.push(`/room?room=${room.code}&name=${encodeURIComponent(safeName)}&host=1`);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Unable to create room right now.');
+      setIsSubmitting(false);
+    }
   };
 
-  const joinRoom = () => {
+  const joinRoom = async () => {
     const code = roomInput.trim().toUpperCase();
     if (!code) return;
     const safeName = name.trim() || 'Guest';
-    router.push(`/room?room=${code}&name=${encodeURIComponent(safeName)}`);
+    setIsSubmitting(true);
+    setErrorMessage('');
+    try {
+      const room = await joinRoomRequest(code, safeName);
+      router.push(`/room?room=${room.code}&name=${encodeURIComponent(safeName)}`);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Unable to join room right now.');
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -48,11 +65,16 @@ export default function HomePage() {
             <RoomAccessForm
               name={name}
               roomCode={roomInput}
+              isSubmitting={isSubmitting}
               onNameChange={setName}
               onRoomCodeChange={setRoomInput}
               onCreateRoom={createRoom}
               onJoinRoom={joinRoom}
             />
+
+            {errorMessage && (
+              <p className="rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">{errorMessage}</p>
+            )}
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-5">

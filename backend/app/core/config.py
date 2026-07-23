@@ -6,6 +6,7 @@ import os
 class Settings:
     app_name: str = "watch-with-me-api"
     cors_origins: tuple[str, ...] = ("http://localhost:3000",)
+    cors_origin_regex: str = r"^https?://(localhost|127\.0\.0\.1):\d+$"
 
 
 def get_settings() -> Settings:

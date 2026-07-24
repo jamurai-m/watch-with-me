@@ -205,7 +205,7 @@ function RoomPageContent() {
           </div>
         </header>
 
-        <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+        <div className="space-y-6">
           <section className="space-y-4 rounded-3xl border border-slate-800 bg-slate-900/80 p-5">
             <YouTubePlayer
               sourceUrl={roomData?.playback.source_url ?? ''}
@@ -257,22 +257,20 @@ function RoomPageContent() {
             </div>
           </section>
 
-          <aside className="space-y-4">
-            <div className="rounded-3xl border border-slate-800 bg-slate-900/80 p-5">
-              <p className="text-sm text-slate-400">Participants</p>
-              <ul className="mt-3 space-y-2">
-                {participants.map((participant) => (
-                  <li
-                    key={`${participant.name}-${participant.joined_at}`}
-                    className="rounded-xl border border-slate-800 bg-slate-950/70 px-3 py-2 text-sm text-slate-300"
-                  >
-                    {participant.name}
-                    {participant.is_host ? ' (host)' : ''}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </aside>
+          <section className="rounded-3xl border border-slate-800 bg-slate-900/80 p-5">
+            <p className="text-sm text-slate-400">Participants</p>
+            <ul className="mt-3 space-y-2">
+              {participants.map((participant) => (
+                <li
+                  key={`${participant.name}-${participant.joined_at}`}
+                  className="rounded-xl border border-slate-800 bg-slate-950/70 px-3 py-2 text-sm text-slate-300"
+                >
+                  {participant.name}
+                  {participant.is_host ? ' (host)' : ''}
+                </li>
+              ))}
+            </ul>
+          </section>
         </div>
       </div>
     </main>

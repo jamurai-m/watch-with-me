@@ -21,6 +21,9 @@ function RoomPageContent() {
   const [errorMessage, setErrorMessage] = useState('');
   const [sourceUrlInput, setSourceUrlInput] = useState('');
   const lastSourceUrlRef = useRef('');
+  const websocketRef = useRef<WebSocket | null>(null);
+  const reconnectTimerRef = useRef<number | null>(null);
+  const shouldReconnectRef = useRef(true);
 
   const selectedMovie = roomData?.playback.movie_title ?? sampleMovies[0].title;
   const activeMovie = useMemo(() => getMovieForRoom(selectedMovie), [selectedMovie]);
@@ -43,6 +46,53 @@ function RoomPageContent() {
     setRoomData(nextRoomData);
   }, [room]);
 
+  const connectRoomEvents = useCallback(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const apiBaseUrl = new URL(process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8000');
+    apiBaseUrl.protocol = apiBaseUrl.protocol === 'https:' ? 'wss:' : 'ws:';
+
+    websocketRef.current?.close();
+    if (reconnectTimerRef.current !== null) {
+      window.clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
+
+    const socket = new WebSocket(`${apiBaseUrl.origin}/rooms/${encodeURIComponent(room)}/events`);
+    websocketRef.current = socket;
+
+    socket.addEventListener('message', (event) => {
+      try {
+        const payload = JSON.parse(event.data as string) as { type?: string; room?: RoomResponse };
+        if (payload.type === 'room_state' && payload.room) {
+          setRoomData(payload.room);
+          setErrorMessage('');
+        }
+      } catch {
+        // Ignore malformed websocket messages and rely on the HTTP snapshot fallback.
+      }
+    });
+
+    socket.addEventListener('close', () => {
+      if (!shouldReconnectRef.current) {
+        return;
+      }
+
+      if (reconnectTimerRef.current !== null) {
+        window.clearTimeout(reconnectTimerRef.current);
+      }
+      reconnectTimerRef.current = window.setTimeout(() => {
+        connectRoomEvents();
+      }, 1500);
+    });
+
+    socket.addEventListener('error', () => {
+      socket.close();
+    });
+  }, [room]);
+
   useEffect(() => {
     const serverSourceUrl = roomData?.playback.source_url ?? '';
     if (serverSourceUrl !== lastSourceUrlRef.current) {
@@ -53,6 +103,7 @@ function RoomPageContent() {
 
   useEffect(() => {
     let isMounted = true;
+    shouldReconnectRef.current = true;
 
     const loadRoom = async () => {
       setIsLoading(true);
@@ -72,6 +123,16 @@ function RoomPageContent() {
     };
 
     loadRoom();
+    connectRoomEvents();
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void refreshRoom();
+      }
+    };
+
+    window.addEventListener('focus', handleVisibilityChange);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     const intervalId = window.setInterval(async () => {
       try {
@@ -84,9 +145,18 @@ function RoomPageContent() {
 
     return () => {
       isMounted = false;
+      shouldReconnectRef.current = false;
       window.clearInterval(intervalId);
+      window.removeEventListener('focus', handleVisibilityChange);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      websocketRef.current?.close();
+      websocketRef.current = null;
+      if (reconnectTimerRef.current !== null) {
+        window.clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
     };
-  }, [refreshRoom, room]);
+  }, [connectRoomEvents, refreshRoom, room]);
 
   const applyPlaybackUpdate = async (payload: {
     movie_title?: string;
@@ -196,14 +266,14 @@ function RoomPageContent() {
                   id="source-url-input"
                   value={sourceUrlInput}
                   onChange={(event) => setSourceUrlInput(event.target.value)}
-                    disabled={!isHost || isUpdating}
+                  disabled={!isHost || isUpdating}
                   className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
                   placeholder="https://www.youtube.com/watch?v=..."
                 />
               </div>
               <button
                 onClick={loadSource}
-                  disabled={!isHost || isUpdating}
+                disabled={!isHost || isUpdating}
                 className="rounded-full bg-cyan-500 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400"
               >
                 Load source

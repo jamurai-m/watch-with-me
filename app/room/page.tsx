@@ -196,14 +196,14 @@ function RoomPageContent() {
                   id="source-url-input"
                   value={sourceUrlInput}
                   onChange={(event) => setSourceUrlInput(event.target.value)}
-                  disabled={!isHost || !roomData || isUpdating}
+                    disabled={!isHost || isUpdating}
                   className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
                   placeholder="https://www.youtube.com/watch?v=..."
                 />
               </div>
               <button
                 onClick={loadSource}
-                disabled={!isHost || !roomData || isUpdating}
+                  disabled={!isHost || isUpdating}
                 className="rounded-full bg-cyan-500 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400"
               >
                 Load source

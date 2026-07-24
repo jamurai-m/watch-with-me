@@ -1,11 +1,11 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 import { getRoom, type RoomResponse, updatePlayback } from '../api-client';
-import { MoviePreviewCard } from '../components/movie-preview-card';
 import { MovieSelect } from '../components/movie-select';
+import { YouTubePlayer } from '../components/youtube-player';
 import { getMovieForRoom, sampleMovies } from '../lib/sample-data';
 
 function RoomPageContent() {
@@ -19,6 +19,8 @@ function RoomPageContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [sourceUrlInput, setSourceUrlInput] = useState('');
+  const lastSourceUrlRef = useRef('');
 
   const selectedMovie = roomData?.playback.movie_title ?? sampleMovies[0].title;
   const activeMovie = useMemo(() => getMovieForRoom(selectedMovie), [selectedMovie]);
@@ -40,6 +42,14 @@ function RoomPageContent() {
     const nextRoomData = await getRoom(room);
     setRoomData(nextRoomData);
   }, [room]);
+
+  useEffect(() => {
+    const serverSourceUrl = roomData?.playback.source_url ?? '';
+    if (serverSourceUrl !== lastSourceUrlRef.current) {
+      lastSourceUrlRef.current = serverSourceUrl;
+      setSourceUrlInput(serverSourceUrl);
+    }
+  }, [roomData?.playback.source_url]);
 
   useEffect(() => {
     let isMounted = true;
@@ -80,6 +90,7 @@ function RoomPageContent() {
 
   const applyPlaybackUpdate = async (payload: {
     movie_title?: string;
+    source_url?: string;
     is_playing?: boolean;
     current_time?: number;
   }) => {
@@ -110,6 +121,19 @@ function RoomPageContent() {
     void applyPlaybackUpdate({ movie_title: movieTitle });
   };
 
+  const loadSource = () => {
+    const nextSourceUrl = sourceUrlInput.trim();
+    if (!nextSourceUrl) {
+      return;
+    }
+
+    void applyPlaybackUpdate({
+      source_url: nextSourceUrl,
+      current_time: 0,
+      is_playing: false,
+    });
+  };
+
   const participants = roomData?.participants ?? [];
 
   return (
@@ -136,7 +160,12 @@ function RoomPageContent() {
 
         <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
           <section className="space-y-4 rounded-3xl border border-slate-800 bg-slate-900/80 p-5">
-            <MoviePreviewCard eyebrow="Now playing" movie={activeMovie} />
+            <YouTubePlayer
+              sourceUrl={roomData?.playback.source_url ?? ''}
+              isPlaying={roomData?.playback.is_playing ?? false}
+              currentTime={roomData?.playback.current_time ?? 0}
+              title={activeMovie.title}
+            />
 
             <div className="flex flex-wrap items-center gap-3">
               <button
@@ -154,8 +183,31 @@ function RoomPageContent() {
                 Skip +10s
               </button>
               <div className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-400">
-                Time: {roomData?.playback.current_time ?? 0}s
+                Time: {(roomData?.playback.current_time ?? 0).toFixed(1)}s
               </div>
+            </div>
+
+            <div className="grid gap-3 rounded-2xl border border-slate-800 bg-slate-950/70 p-4 md:grid-cols-[1fr_auto] md:items-end">
+              <div>
+                <label className="mb-2 block text-sm text-slate-400" htmlFor="source-url-input">
+                  YouTube URL or video ID
+                </label>
+                <input
+                  id="source-url-input"
+                  value={sourceUrlInput}
+                  onChange={(event) => setSourceUrlInput(event.target.value)}
+                  disabled={!isHost || !roomData || isUpdating}
+                  className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
+                  placeholder="https://www.youtube.com/watch?v=..."
+                />
+              </div>
+              <button
+                onClick={loadSource}
+                disabled={!isHost || !roomData || isUpdating}
+                className="rounded-full bg-cyan-500 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400"
+              >
+                Load source
+              </button>
             </div>
           </section>
 

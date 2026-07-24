@@ -43,6 +43,7 @@ def update_playback(code: str, payload: PlaybackUpdateRequest) -> RoomResponse:
         room = room_store.update_playback(
             code,
             movie_title=payload.movie_title,
+            source_url=payload.source_url,
             is_playing=payload.is_playing,
             current_time=payload.current_time,
         )

@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import asdict
+from datetime import datetime, timezone
 from secrets import choice
 
-from app.models import Room, RoomParticipant
+from app.models import PlaybackState, Room, RoomParticipant
 
 
 class RoomNotFoundError(Exception):
@@ -39,16 +40,24 @@ class RoomStore:
         code: str,
         *,
         movie_title: str | None = None,
+        source_url: str | None = None,
         is_playing: bool | None = None,
-        current_time: int | None = None,
+        current_time: float | None = None,
     ) -> Room:
         room = self.get_room(code)
+        now = self._utc_now()
+        self._sync_playback_clock(room.playback, now)
+
         if movie_title is not None:
             room.playback.movie_title = movie_title
+        if source_url is not None:
+            room.playback.source_url = source_url
         if is_playing is not None:
             room.playback.is_playing = is_playing
         if current_time is not None:
             room.playback.current_time = current_time
+
+        room.playback.updated_at = now
         return room
 
     def serialize_room(self, room: Room) -> dict:
@@ -57,8 +66,28 @@ class RoomStore:
             "host_name": room.host_name,
             "created_at": room.created_at,
             "participants": [asdict(participant) for participant in room.participants],
-            "playback": asdict(room.playback),
+            "playback": self._serialize_playback(room.playback),
         }
+
+    def _serialize_playback(self, playback: PlaybackState) -> dict:
+        current_time = playback.current_time
+        if playback.is_playing:
+            current_time += (self._utc_now() - playback.updated_at).total_seconds()
+
+        return {
+            "movie_title": playback.movie_title,
+            "source_url": playback.source_url,
+            "is_playing": playback.is_playing,
+            "current_time": max(0.0, current_time),
+            "updated_at": playback.updated_at,
+        }
+
+    def _sync_playback_clock(self, playback: PlaybackState, now: datetime) -> None:
+        if playback.is_playing:
+            playback.current_time = max(0.0, playback.current_time + (now - playback.updated_at).total_seconds())
+
+    def _utc_now(self) -> datetime:
+        return datetime.now(timezone.utc)
 
     def _generate_room_code(self) -> str:
         alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"

@@ -6,8 +6,10 @@ export type ParticipantResponse = {
 
 export type PlaybackResponse = {
   movie_title: string;
+  source_url: string;
   is_playing: boolean;
   current_time: number;
+  updated_at: string;
 };
 
 export type RoomResponse = {
@@ -29,7 +31,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
     headers: {
       'Content-Type': 'application/json',
-      ...(init?.headers ?? {}),
+      ...(init?.headers ? init.headers : {}),
     },
   });
 
@@ -69,6 +71,7 @@ export function getRoom(code: string): Promise<RoomResponse> {
 
 type UpdatePlaybackPayload = {
   movie_title?: string;
+  source_url?: string;
   is_playing?: boolean;
   current_time?: number;
 };

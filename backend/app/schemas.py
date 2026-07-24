@@ -16,8 +16,9 @@ class RoomJoinRequest(BaseModel):
 
 class PlaybackUpdateRequest(BaseModel):
     is_playing: bool | None = None
-    current_time: int | None = Field(default=None, ge=0)
+    current_time: float | None = Field(default=None, ge=0)
     movie_title: str | None = Field(default=None, min_length=1, max_length=128)
+    source_url: str | None = Field(default=None, min_length=1, max_length=2048)
 
 
 class ParticipantResponse(BaseModel):
@@ -28,8 +29,10 @@ class ParticipantResponse(BaseModel):
 
 class PlaybackResponse(BaseModel):
     movie_title: str
+    source_url: str
     is_playing: bool
-    current_time: int
+    current_time: float
+    updated_at: datetime
 
 
 class RoomResponse(BaseModel):

@@ -18,8 +18,10 @@ class RoomParticipant:
 @dataclass
 class PlaybackState:
     movie_title: str = "The Matrix"
+    source_url: str = ""
     is_playing: bool = False
-    current_time: int = 0
+    current_time: float = 0
+    updated_at: datetime = field(default_factory=utc_now)
 
 
 @dataclass

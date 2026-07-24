@@ -39,7 +39,6 @@ class RoomStore:
         self,
         code: str,
         *,
-        movie_title: str | None = None,
         source_url: str | None = None,
         is_playing: bool | None = None,
         current_time: float | None = None,
@@ -48,8 +47,6 @@ class RoomStore:
         now = self._utc_now()
         self._sync_playback_clock(room.playback, now)
 
-        if movie_title is not None:
-            room.playback.movie_title = movie_title
         if source_url is not None:
             room.playback.source_url = source_url
         if is_playing is not None:
@@ -75,7 +72,6 @@ class RoomStore:
             current_time += (self._utc_now() - playback.updated_at).total_seconds()
 
         return {
-            "movie_title": playback.movie_title,
             "source_url": playback.source_url,
             "is_playing": playback.is_playing,
             "current_time": max(0.0, current_time),

@@ -6,7 +6,6 @@ type YouTubePlayerProps = {
   sourceUrl: string;
   isPlaying: boolean;
   currentTime: number;
-  title: string;
 };
 
 type YouTubeApi = {
@@ -106,7 +105,7 @@ function extractYouTubeVideoId(sourceUrl: string): string {
   return '';
 }
 
-export function YouTubePlayer({ sourceUrl, isPlaying, currentTime, title }: Readonly<YouTubePlayerProps>) {
+export function YouTubePlayer({ sourceUrl, isPlaying, currentTime }: Readonly<YouTubePlayerProps>) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const playerRef = useRef<InstanceType<YouTubeApi['Player']> | null>(null);
   const isPlayingRef = useRef(isPlaying);
@@ -215,7 +214,7 @@ export function YouTubePlayer({ sourceUrl, isPlaying, currentTime, title }: Read
       <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
         <div>
           <p className="text-xs uppercase tracking-[0.3em] text-cyan-400">Live player</p>
-          <p className="mt-1 text-sm text-slate-300">{title}</p>
+          <p className="mt-1 text-sm text-slate-300">Shared source</p>
         </div>
         <div className="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-400">{statusLabel}</div>
       </div>

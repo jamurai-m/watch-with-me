@@ -5,7 +5,6 @@ export type ParticipantResponse = {
 };
 
 export type PlaybackResponse = {
-  movie_title: string;
   source_url: string;
   is_playing: boolean;
   current_time: number;
@@ -70,7 +69,6 @@ export function getRoom(code: string): Promise<RoomResponse> {
 }
 
 type UpdatePlaybackPayload = {
-  movie_title?: string;
   source_url?: string;
   is_playing?: boolean;
   current_time?: number;

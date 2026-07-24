@@ -1,12 +1,10 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 import { getRoom, type RoomResponse, updatePlayback } from '../api-client';
-import { MovieSelect } from '../components/movie-select';
 import { YouTubePlayer } from '../components/youtube-player';
-import { getMovieForRoom, sampleMovies } from '../lib/sample-data';
 
 function RoomPageContent() {
   const searchParams = useSearchParams();
@@ -24,22 +22,6 @@ function RoomPageContent() {
   const websocketRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<number | null>(null);
   const shouldReconnectRef = useRef(true);
-
-  const selectedMovie = roomData?.playback.movie_title ?? sampleMovies[0].title;
-  const activeMovie = useMemo(() => getMovieForRoom(selectedMovie), [selectedMovie]);
-  const movieChoices = useMemo(() => {
-    if (sampleMovies.some((movie) => movie.title === selectedMovie)) {
-      return sampleMovies;
-    }
-    return [
-      ...sampleMovies,
-      {
-        title: selectedMovie,
-        year: 'Custom',
-        badge: 'Room Selection',
-      },
-    ];
-  }, [selectedMovie]);
 
   const refreshRoom = useCallback(async () => {
     const nextRoomData = await getRoom(room);
@@ -159,7 +141,6 @@ function RoomPageContent() {
   }, [connectRoomEvents, refreshRoom, room]);
 
   const applyPlaybackUpdate = async (payload: {
-    movie_title?: string;
     source_url?: string;
     is_playing?: boolean;
     current_time?: number;
@@ -185,10 +166,6 @@ function RoomPageContent() {
   const skipAhead = () => {
     if (!roomData) return;
     void applyPlaybackUpdate({ current_time: roomData.playback.current_time + 10 });
-  };
-
-  const onMovieChange = (movieTitle: string) => {
-    void applyPlaybackUpdate({ movie_title: movieTitle });
   };
 
   const loadSource = () => {
@@ -234,7 +211,6 @@ function RoomPageContent() {
               sourceUrl={roomData?.playback.source_url ?? ''}
               isPlaying={roomData?.playback.is_playing ?? false}
               currentTime={roomData?.playback.current_time ?? 0}
-              title={activeMovie.title}
             />
 
             <div className="flex flex-wrap items-center gap-3">
@@ -282,17 +258,6 @@ function RoomPageContent() {
           </section>
 
           <aside className="space-y-4">
-            <div className="rounded-3xl border border-slate-800 bg-slate-900/80 p-5">
-              <MovieSelect
-                id="movie-select"
-                label="Movie selection"
-                value={selectedMovie}
-                movies={movieChoices}
-                disabled={!isHost || !roomData || isUpdating}
-                onChange={onMovieChange}
-              />
-            </div>
-
             <div className="rounded-3xl border border-slate-800 bg-slate-900/80 p-5">
               <p className="text-sm text-slate-400">Participants</p>
               <ul className="mt-3 space-y-2">

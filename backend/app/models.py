@@ -17,7 +17,6 @@ class RoomParticipant:
 
 @dataclass
 class PlaybackState:
-    movie_title: str = "The Matrix"
     source_url: str = ""
     is_playing: bool = False
     current_time: float = 0

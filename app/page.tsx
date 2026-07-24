@@ -1,23 +1,17 @@
 "use client";
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { createRoom as createRoomRequest, joinRoom as joinRoomRequest } from './api-client';
-import { MoviePreviewCard } from './components/movie-preview-card';
-import { MovieSelect } from './components/movie-select';
 import { RoomAccessForm } from './components/room-access-form';
-import { getActiveMovie, sampleMovies } from './lib/sample-data';
 
 export default function HomePage() {
   const router = useRouter();
   const [name, setName] = useState('You');
   const [roomInput, setRoomInput] = useState('');
-  const [selectedMovie, setSelectedMovie] = useState(sampleMovies[0].title);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-
-  const activeMovie = useMemo(() => getActiveMovie(selectedMovie), [selectedMovie]);
 
   const createRoom = async () => {
     const safeName = name.trim() || 'Guest';
@@ -89,15 +83,15 @@ export default function HomePage() {
           </section>
 
           <section className="space-y-4 rounded-3xl border border-slate-800 bg-slate-950/70 p-5">
-            <MoviePreviewCard eyebrow="Tonight's pick" movie={activeMovie} />
-
-            <MovieSelect
-              id="movie-select"
-              label="Preview a movie"
-              value={selectedMovie}
-              movies={sampleMovies}
-              onChange={setSelectedMovie}
-            />
+            <div className="aspect-video overflow-hidden rounded-2xl border border-slate-800 bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.2),_transparent_60%)] p-6">
+              <div className="flex h-full items-center justify-center text-center">
+                <div>
+                  <p className="text-sm uppercase tracking-[0.3em] text-cyan-400">Shared source</p>
+                  <h2 className="mt-2 text-3xl font-semibold text-white">Play content from a link</h2>
+                  <p className="mt-2 text-slate-400">Drop in a YouTube URL in a room and keep everyone synced to the same source.</p>
+                </div>
+              </div>
+            </div>
           </section>
         </div>
       </div>

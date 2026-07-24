@@ -109,6 +109,7 @@ function extractYouTubeVideoId(sourceUrl: string): string {
 export function YouTubePlayer({ sourceUrl, isPlaying, currentTime, title }: Readonly<YouTubePlayerProps>) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const playerRef = useRef<InstanceType<YouTubeApi['Player']> | null>(null);
+  const isPlayingRef = useRef(isPlaying);
   const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
 
   const videoId = useMemo(() => extractYouTubeVideoId(sourceUrl), [sourceUrl]);
@@ -122,9 +123,16 @@ export function YouTubePlayer({ sourceUrl, isPlaying, currentTime, title }: Read
   }
 
   useEffect(() => {
+    isPlayingRef.current = isPlaying;
+  }, [isPlaying]);
+
+  useEffect(() => {
     let isActive = true;
 
     if (!containerRef.current || !videoId) {
+      if (!videoId) {
+        setStatus('idle');
+      }
       return undefined;
     }
 
@@ -151,9 +159,16 @@ export function YouTubePlayer({ sourceUrl, isPlaying, currentTime, title }: Read
                   return;
                 }
                 setStatus('ready');
+                if (isPlayingRef.current) {
+                  playerRef.current?.playVideo();
+                } else {
+                  playerRef.current?.pauseVideo();
+                }
               },
             },
           });
+        } else {
+          playerRef.current.loadVideoById(videoId);
         }
       })
       .catch(() => {
@@ -175,11 +190,9 @@ export function YouTubePlayer({ sourceUrl, isPlaying, currentTime, title }: Read
 
     if (!videoId) {
       player.stopVideo();
-      setStatus('idle');
       return;
     }
 
-    player.loadVideoById(videoId);
     if (Math.abs(player.getCurrentTime() - currentTime) > 1.5) {
       player.seekTo(currentTime, true);
     }

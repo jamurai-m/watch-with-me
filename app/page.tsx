@@ -69,17 +69,6 @@ export default function HomePage() {
             {errorMessage && (
               <p className="rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">{errorMessage}</p>
             )}
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-5">
-                <p className="text-sm text-slate-400">MVP focus</p>
-                <p className="mt-2 text-sm text-slate-300">Room creation, shared controls, and a simple viewing experience.</p>
-              </div>
-              <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-5">
-                <p className="text-sm text-slate-400">Next milestone</p>
-                <p className="mt-2 text-sm text-slate-300">Real-time sync across separate devices and persistent rooms.</p>
-              </div>
-            </div>
           </section>
 
           <section className="space-y-4 rounded-3xl border border-slate-800 bg-slate-950/70 p-5">

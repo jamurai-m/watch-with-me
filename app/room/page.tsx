@@ -158,14 +158,14 @@ function RoomPageContent() {
     }
   };
 
-  const togglePlayback = () => {
-    if (!roomData) return;
-    void applyPlaybackUpdate({ is_playing: !roomData.playback.is_playing });
+  const handlePlaybackIntent = (payload: { is_playing?: boolean; current_time?: number }) => {
+    if (!isHost) return;
+    void applyPlaybackUpdate(payload);
   };
 
-  const skipAhead = () => {
+  const resetPlayback = () => {
     if (!roomData) return;
-    void applyPlaybackUpdate({ current_time: roomData.playback.current_time + 10 });
+    void applyPlaybackUpdate({ current_time: 0, is_playing: false });
   };
 
   const loadSource = () => {
@@ -211,26 +211,28 @@ function RoomPageContent() {
               sourceUrl={roomData?.playback.source_url ?? ''}
               isPlaying={roomData?.playback.is_playing ?? false}
               currentTime={roomData?.playback.current_time ?? 0}
+              onPlaybackIntent={handlePlaybackIntent}
             />
 
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                onClick={togglePlayback}
-                disabled={!isHost || !roomData || isUpdating}
-                className="rounded-full bg-cyan-500 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400"
-              >
-                {roomData?.playback.is_playing ? 'Pause' : 'Play'}
-              </button>
-              <button
-                onClick={skipAhead}
-                disabled={!isHost || !roomData || isUpdating}
-                className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-200 disabled:cursor-not-allowed disabled:text-slate-500"
-              >
-                Skip +10s
-              </button>
-              <div className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-400">
-                Time: {(roomData?.playback.current_time ?? 0).toFixed(1)}s
+            <div className="flex flex-wrap items-center gap-3 text-sm text-slate-400">
+              <div className="rounded-full border border-slate-700 px-4 py-2">
+                Current time: {(roomData?.playback.current_time ?? 0).toFixed(1)}s
               </div>
+              {isHost && (
+                <button
+                  onClick={resetPlayback}
+                  disabled={!roomData || isUpdating}
+                  className="rounded-full border border-slate-700 px-4 py-2 text-slate-200 transition hover:border-cyan-500 hover:text-cyan-300 disabled:cursor-not-allowed disabled:text-slate-500"
+                >
+                  Reset to start
+                </button>
+              )}
+            </div>
+
+            <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4 text-sm text-slate-400">
+              <p>
+                Use the native YouTube controls in the player for play, pause, and seek. Hosts can still change the shared source or reset playback here.
+              </p>
             </div>
 
             <div className="grid gap-3 rounded-2xl border border-slate-800 bg-slate-950/70 p-4 md:grid-cols-[1fr_auto] md:items-end">

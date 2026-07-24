@@ -2,10 +2,16 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+type PlaybackIntent = {
+  is_playing?: boolean;
+  current_time?: number;
+};
+
 type YouTubePlayerProps = {
   sourceUrl: string;
   isPlaying: boolean;
   currentTime: number;
+  onPlaybackIntent?: (intent: PlaybackIntent) => void;
 };
 
 type YouTubeApi = {
@@ -15,8 +21,16 @@ type YouTubeApi = {
     pauseVideo: () => void;
     seekTo: (seconds: number, allowSeekAhead?: boolean) => void;
     getCurrentTime: () => number;
+    getPlayerState: () => number;
     stopVideo: () => void;
     destroy: () => void;
+  };
+  PlayerState: {
+    ENDED: number;
+    PLAYING: number;
+    PAUSED: number;
+    BUFFERING: number;
+    CUED: number;
   };
 };
 
@@ -105,16 +119,18 @@ function extractYouTubeVideoId(sourceUrl: string): string {
   return '';
 }
 
-export function YouTubePlayer({ sourceUrl, isPlaying, currentTime }: Readonly<YouTubePlayerProps>) {
+export function YouTubePlayer({ sourceUrl, isPlaying, currentTime, onPlaybackIntent }: Readonly<YouTubePlayerProps>) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const playerRef = useRef<InstanceType<YouTubeApi['Player']> | null>(null);
   const isPlayingRef = useRef(isPlaying);
+  const onPlaybackIntentRef = useRef(onPlaybackIntent);
+  const suppressRemoteSyncUntilRef = useRef(0);
   const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
 
   const videoId = useMemo(() => extractYouTubeVideoId(sourceUrl), [sourceUrl]);
   let statusLabel = 'Waiting for source';
   if (status === 'ready') {
-    statusLabel = 'Synced';
+    statusLabel = 'Native controls live';
   } else if (status === 'loading') {
     statusLabel = 'Loading...';
   } else if (status === 'error') {
@@ -126,6 +142,10 @@ export function YouTubePlayer({ sourceUrl, isPlaying, currentTime }: Readonly<Yo
   }, [isPlaying]);
 
   useEffect(() => {
+    onPlaybackIntentRef.current = onPlaybackIntent;
+  }, [onPlaybackIntent]);
+
+  useEffect(() => {
     let isActive = true;
 
     if (!containerRef.current || !videoId) {
@@ -135,6 +155,7 @@ export function YouTubePlayer({ sourceUrl, isPlaying, currentTime }: Readonly<Yo
       return undefined;
     }
 
+    suppressRemoteSyncUntilRef.current = Date.now() + 700;
     setStatus('loading');
 
     void loadYouTubeApi()
@@ -164,6 +185,19 @@ export function YouTubePlayer({ sourceUrl, isPlaying, currentTime }: Readonly<Yo
                   playerRef.current?.pauseVideo();
                 }
               },
+              onStateChange: (event: { data: number }) => {
+                const playerState = event.data;
+                const ytPlayerState = window.YT?.PlayerState;
+                const isPlayingState = playerState === ytPlayerState?.PLAYING;
+                const nextCurrentTime = playerRef.current?.getCurrentTime() ?? currentTime;
+                if (playerState === ytPlayerState?.PLAYING || playerState === ytPlayerState?.PAUSED || playerState === ytPlayerState?.ENDED || playerState === ytPlayerState?.CUED) {
+                  suppressRemoteSyncUntilRef.current = Date.now() + 700;
+                  onPlaybackIntentRef.current?.({
+                    is_playing: isPlayingState,
+                    current_time: Number(nextCurrentTime.toFixed(2)),
+                  });
+                }
+              },
             },
           });
         } else {
@@ -179,7 +213,7 @@ export function YouTubePlayer({ sourceUrl, isPlaying, currentTime }: Readonly<Yo
     return () => {
       isActive = false;
     };
-  }, [videoId]);
+  }, [currentTime, videoId]);
 
   useEffect(() => {
     const player = playerRef.current;
@@ -189,6 +223,10 @@ export function YouTubePlayer({ sourceUrl, isPlaying, currentTime }: Readonly<Yo
 
     if (!videoId) {
       player.stopVideo();
+      return;
+    }
+
+    if (Date.now() < suppressRemoteSyncUntilRef.current) {
       return;
     }
 
@@ -214,7 +252,7 @@ export function YouTubePlayer({ sourceUrl, isPlaying, currentTime }: Readonly<Yo
       <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
         <div>
           <p className="text-xs uppercase tracking-[0.3em] text-cyan-400">Live player</p>
-          <p className="mt-1 text-sm text-slate-300">Shared source</p>
+          <p className="mt-1 text-sm text-slate-300">Use the embedded YouTube controls</p>
         </div>
         <div className="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-400">{statusLabel}</div>
       </div>

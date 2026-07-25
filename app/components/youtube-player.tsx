@@ -213,7 +213,7 @@ export function YouTubePlayer({ sourceUrl, isPlaying, currentTime, onPlaybackInt
     return () => {
       isActive = false;
     };
-  }, [currentTime, videoId]);
+  }, [videoId]);
 
   useEffect(() => {
     const player = playerRef.current;

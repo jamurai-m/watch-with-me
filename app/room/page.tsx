@@ -264,7 +264,7 @@ function RoomPageContent() {
             <ul className="mt-3 space-y-2">
               {participants.map((participant) => (
                 <li
-                  key={`${participant.name}-${participant.joined_at}`}
+                  key={participant.participant_id}
                   className="rounded-xl border border-slate-800 bg-slate-950/70 px-3 py-2 text-sm text-slate-300"
                 >
                   {participant.name}

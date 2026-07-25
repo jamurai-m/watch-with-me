@@ -24,8 +24,7 @@ class RoomStore:
 
     def join_room(self, code: str, name: str) -> Room:
         room = self.get_room(code)
-        if not any(participant.name == name for participant in room.participants):
-            room.participants.append(RoomParticipant(name=name, is_host=False))
+        room.participants.append(RoomParticipant(name=name, is_host=False))
         return room
 
     def get_room(self, code: str) -> Room:

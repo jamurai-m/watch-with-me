@@ -1,4 +1,5 @@
 export type ParticipantResponse = {
+  participant_id: string;
   name: string;
   is_host: boolean;
   joined_at: string;

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from uuid import uuid4
 
 
 def utc_now() -> datetime:
@@ -11,6 +12,7 @@ def utc_now() -> datetime:
 @dataclass
 class RoomParticipant:
     name: str
+    participant_id: str = field(default_factory=lambda: uuid4().hex)
     is_host: bool = False
     joined_at: datetime = field(default_factory=utc_now)
 

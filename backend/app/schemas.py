@@ -21,6 +21,7 @@ class PlaybackUpdateRequest(BaseModel):
 
 
 class ParticipantResponse(BaseModel):
+    participant_id: str
     name: str
     is_host: bool
     joined_at: datetime

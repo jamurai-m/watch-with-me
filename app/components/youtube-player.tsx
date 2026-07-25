@@ -123,6 +123,7 @@ export function YouTubePlayer({ sourceUrl, isPlaying, currentTime, onPlaybackInt
   const containerRef = useRef<HTMLDivElement | null>(null);
   const playerRef = useRef<InstanceType<YouTubeApi['Player']> | null>(null);
   const isPlayingRef = useRef(isPlaying);
+  const currentTimeRef = useRef(currentTime);
   const onPlaybackIntentRef = useRef(onPlaybackIntent);
   const suppressRemoteSyncUntilRef = useRef(0);
   const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
@@ -140,6 +141,10 @@ export function YouTubePlayer({ sourceUrl, isPlaying, currentTime, onPlaybackInt
   useEffect(() => {
     isPlayingRef.current = isPlaying;
   }, [isPlaying]);
+
+  useEffect(() => {
+    currentTimeRef.current = currentTime;
+  }, [currentTime]);
 
   useEffect(() => {
     onPlaybackIntentRef.current = onPlaybackIntent;
@@ -189,7 +194,7 @@ export function YouTubePlayer({ sourceUrl, isPlaying, currentTime, onPlaybackInt
                 const playerState = event.data;
                 const ytPlayerState = window.YT?.PlayerState;
                 const isPlayingState = playerState === ytPlayerState?.PLAYING;
-                const nextCurrentTime = playerRef.current?.getCurrentTime() ?? currentTime;
+                const nextCurrentTime = playerRef.current?.getCurrentTime() ?? currentTimeRef.current;
                 if (playerState === ytPlayerState?.PLAYING || playerState === ytPlayerState?.PAUSED || playerState === ytPlayerState?.ENDED || playerState === ytPlayerState?.CUED) {
                   suppressRemoteSyncUntilRef.current = Date.now() + 700;
                   onPlaybackIntentRef.current?.({
@@ -226,13 +231,14 @@ export function YouTubePlayer({ sourceUrl, isPlaying, currentTime, onPlaybackInt
       return;
     }
 
+    if (Math.abs(player.getCurrentTime() - currentTime) > 1.5) {
+      player.seekTo(currentTime, true);
+    }
+
     if (Date.now() < suppressRemoteSyncUntilRef.current) {
       return;
     }
 
-    if (Math.abs(player.getCurrentTime() - currentTime) > 1.5) {
-      player.seekTo(currentTime, true);
-    }
     if (isPlaying) {
       player.playVideo();
     } else {

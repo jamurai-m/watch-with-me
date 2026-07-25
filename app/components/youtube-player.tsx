@@ -235,15 +235,16 @@ export function YouTubePlayer({ sourceUrl, isPlaying, currentTime, onPlaybackInt
       player.seekTo(currentTime, true);
     }
 
-    if (Date.now() < suppressRemoteSyncUntilRef.current) {
+    if (!isPlaying) {
+      player.pauseVideo();
       return;
     }
 
-    if (isPlaying) {
-      player.playVideo();
-    } else {
-      player.pauseVideo();
+    if (Date.now() < suppressRemoteSyncUntilRef.current && player.getPlayerState() === window.YT?.PlayerState.PLAYING) {
+      return;
     }
+
+    player.playVideo();
   }, [currentTime, isPlaying, status, videoId]);
 
   useEffect(() => {

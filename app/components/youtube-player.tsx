@@ -2,16 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-type PlaybackIntent = {
-  is_playing?: boolean;
-  current_time?: number;
-};
-
 type YouTubePlayerProps = {
   sourceUrl: string;
   isPlaying: boolean;
   currentTime: number;
-  onPlaybackIntent?: (intent: PlaybackIntent) => void;
 };
 
 type YouTubeApi = {
@@ -119,20 +113,17 @@ function extractYouTubeVideoId(sourceUrl: string): string {
   return '';
 }
 
-export function YouTubePlayer({ sourceUrl, isPlaying, currentTime, onPlaybackIntent }: Readonly<YouTubePlayerProps>) {
+export function YouTubePlayer({ sourceUrl, isPlaying, currentTime }: Readonly<YouTubePlayerProps>) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const playerRef = useRef<InstanceType<YouTubeApi['Player']> | null>(null);
   const isPlayingRef = useRef(isPlaying);
   const currentTimeRef = useRef(currentTime);
-  const onPlaybackIntentRef = useRef(onPlaybackIntent);
-  const suppressRemoteSyncUntilRef = useRef(0);
-  const playbackIntentTimerRef = useRef<number | null>(null);
   const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
 
   const videoId = useMemo(() => extractYouTubeVideoId(sourceUrl), [sourceUrl]);
   let statusLabel = 'Waiting for source';
   if (status === 'ready') {
-    statusLabel = 'Native controls live';
+    statusLabel = 'App-controlled output';
   } else if (status === 'loading') {
     statusLabel = 'Loading...';
   } else if (status === 'error') {
@@ -148,19 +139,6 @@ export function YouTubePlayer({ sourceUrl, isPlaying, currentTime, onPlaybackInt
   }, [currentTime]);
 
   useEffect(() => {
-    onPlaybackIntentRef.current = onPlaybackIntent;
-  }, [onPlaybackIntent]);
-
-  useEffect(() => {
-    return () => {
-      if (playbackIntentTimerRef.current !== null) {
-        window.clearTimeout(playbackIntentTimerRef.current);
-        playbackIntentTimerRef.current = null;
-      }
-    };
-  }, []);
-
-  useEffect(() => {
     let isActive = true;
 
     if (!containerRef.current || !videoId) {
@@ -170,7 +148,6 @@ export function YouTubePlayer({ sourceUrl, isPlaying, currentTime, onPlaybackInt
       return undefined;
     }
 
-    suppressRemoteSyncUntilRef.current = Date.now() + 700;
     setStatus('loading');
 
     void loadYouTubeApi()
@@ -183,6 +160,8 @@ export function YouTubePlayer({ sourceUrl, isPlaying, currentTime, onPlaybackInt
           playerRef.current = new window.YT.Player(containerRef.current, {
             videoId,
             playerVars: {
+              controls: 0,
+              disablekb: 1,
               rel: 0,
               modestbranding: 1,
               playsinline: 1,
@@ -194,30 +173,20 @@ export function YouTubePlayer({ sourceUrl, isPlaying, currentTime, onPlaybackInt
                   return;
                 }
                 setStatus('ready');
-                if (isPlayingRef.current) {
-                  playerRef.current?.playVideo();
-                } else {
-                  playerRef.current?.pauseVideo();
+                const player = playerRef.current;
+                if (!player) {
+                  return;
                 }
-              },
-              onStateChange: (event: { data: number }) => {
-                const playerState = event.data;
-                const ytPlayerState = window.YT?.PlayerState;
-                const isPlayingState = playerState === ytPlayerState?.PLAYING;
-                if (playerState === ytPlayerState?.PLAYING || playerState === ytPlayerState?.PAUSED || playerState === ytPlayerState?.ENDED || playerState === ytPlayerState?.CUED) {
-                  suppressRemoteSyncUntilRef.current = Date.now() + 700;
-                  if (playbackIntentTimerRef.current !== null) {
-                    window.clearTimeout(playbackIntentTimerRef.current);
-                  }
 
-                  playbackIntentTimerRef.current = window.setTimeout(() => {
-                    playbackIntentTimerRef.current = null;
-                    const nextCurrentTime = playerRef.current?.getCurrentTime() ?? currentTimeRef.current;
-                    onPlaybackIntentRef.current?.({
-                      is_playing: isPlayingState,
-                      current_time: Number(nextCurrentTime.toFixed(2)),
-                    });
-                  }, 150);
+                const desiredCurrentTime = currentTimeRef.current;
+                if (Math.abs(player.getCurrentTime() - desiredCurrentTime) > 1.5) {
+                  player.seekTo(desiredCurrentTime, true);
+                }
+
+                if (isPlayingRef.current) {
+                  player.playVideo();
+                } else {
+                  player.pauseVideo();
                 }
               },
             },
@@ -252,16 +221,12 @@ export function YouTubePlayer({ sourceUrl, isPlaying, currentTime, onPlaybackInt
       player.seekTo(currentTime, true);
     }
 
-    if (!isPlaying) {
-      player.pauseVideo();
+    if (isPlaying) {
+      player.playVideo();
       return;
     }
 
-    if (Date.now() < suppressRemoteSyncUntilRef.current && player.getPlayerState() === window.YT?.PlayerState.PLAYING) {
-      return;
-    }
-
-    player.playVideo();
+    player.pauseVideo();
   }, [currentTime, isPlaying, status, videoId]);
 
   useEffect(() => {
@@ -276,7 +241,7 @@ export function YouTubePlayer({ sourceUrl, isPlaying, currentTime, onPlaybackInt
       <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
         <div>
           <p className="text-xs uppercase tracking-[0.3em] text-cyan-400">Live player</p>
-          <p className="mt-1 text-sm text-slate-300">Use the embedded YouTube controls</p>
+          <p className="mt-1 text-sm text-slate-300">App-owned playback controls drive this surface</p>
         </div>
         <div className="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-400">{statusLabel}</div>
       </div>

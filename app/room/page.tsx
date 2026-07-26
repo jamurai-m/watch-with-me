@@ -18,6 +18,7 @@ function RoomPageContent() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [sourceUrlInput, setSourceUrlInput] = useState('');
+  const [seekTimeInput, setSeekTimeInput] = useState('0');
   const lastSourceUrlRef = useRef('');
   const websocketRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<number | null>(null);
@@ -82,6 +83,10 @@ function RoomPageContent() {
       setSourceUrlInput(serverSourceUrl);
     }
   }, [roomData?.playback.source_url]);
+
+  useEffect(() => {
+    setSeekTimeInput((roomData?.playback.current_time ?? 0).toFixed(1));
+  }, [roomData?.playback.current_time]);
 
   useEffect(() => {
     let isMounted = true;
@@ -158,14 +163,24 @@ function RoomPageContent() {
     }
   };
 
-  const handlePlaybackIntent = (payload: { is_playing?: boolean; current_time?: number }) => {
-    if (!isHost) return;
-    void applyPlaybackUpdate(payload);
-  };
-
   const resetPlayback = () => {
     if (!roomData) return;
     void applyPlaybackUpdate({ current_time: 0, is_playing: false });
+  };
+
+  const togglePlayback = () => {
+    if (!roomData) return;
+    void applyPlaybackUpdate({ is_playing: !roomData.playback.is_playing });
+  };
+
+  const seekPlayback = () => {
+    const nextCurrentTime = Number.parseFloat(seekTimeInput);
+    if (!Number.isFinite(nextCurrentTime) || nextCurrentTime < 0) {
+      setErrorMessage('Enter a valid seek time in seconds.');
+      return;
+    }
+
+    void applyPlaybackUpdate({ current_time: nextCurrentTime });
   };
 
   const loadSource = () => {
@@ -211,27 +226,58 @@ function RoomPageContent() {
               sourceUrl={roomData?.playback.source_url ?? ''}
               isPlaying={roomData?.playback.is_playing ?? false}
               currentTime={roomData?.playback.current_time ?? 0}
-              onPlaybackIntent={handlePlaybackIntent}
             />
 
-            <div className="flex flex-wrap items-center gap-3 text-sm text-slate-400">
-              <div className="rounded-full border border-slate-700 px-4 py-2">
-                Current time: {(roomData?.playback.current_time ?? 0).toFixed(1)}s
+            <div className="grid gap-3 rounded-2xl border border-slate-800 bg-slate-950/70 p-4 md:grid-cols-[auto_1fr_auto] md:items-center">
+              <div className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-300">
+                {roomData?.playback.is_playing ? 'Playing' : 'Paused'} · Current time: {(roomData?.playback.current_time ?? 0).toFixed(1)}s
               </div>
-              {isHost && (
+              <div className="grid gap-2 md:grid-cols-[1fr_auto] md:items-end">
+                <div>
+                  <label className="mb-2 block text-sm text-slate-400" htmlFor="seek-time-input">
+                    Seek to time (seconds)
+                  </label>
+                  <input
+                    id="seek-time-input"
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={seekTimeInput}
+                    onChange={(event) => setSeekTimeInput(event.target.value)}
+                    disabled={!isHost || isUpdating}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
+                    placeholder="0.0"
+                  />
+                </div>
+                <button
+                  onClick={seekPlayback}
+                  disabled={!isHost || isUpdating}
+                  className="rounded-full border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-cyan-500 hover:text-cyan-300 disabled:cursor-not-allowed disabled:text-slate-500"
+                >
+                  Seek
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-3 md:justify-end">
+                <button
+                  onClick={togglePlayback}
+                  disabled={!roomData || !isHost || isUpdating}
+                  className="rounded-full bg-cyan-500 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400"
+                >
+                  {roomData?.playback.is_playing ? 'Pause' : 'Play'}
+                </button>
                 <button
                   onClick={resetPlayback}
-                  disabled={!roomData || isUpdating}
-                  className="rounded-full border border-slate-700 px-4 py-2 text-slate-200 transition hover:border-cyan-500 hover:text-cyan-300 disabled:cursor-not-allowed disabled:text-slate-500"
+                  disabled={!roomData || !isHost || isUpdating}
+                  className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-200 transition hover:border-cyan-500 hover:text-cyan-300 disabled:cursor-not-allowed disabled:text-slate-500"
                 >
                   Reset to start
                 </button>
-              )}
+              </div>
             </div>
 
             <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4 text-sm text-slate-400">
               <p>
-                Use the native YouTube controls in the player for play, pause, and seek. Hosts can still change the shared source or reset playback here.
+                The embedded player is output only. Hosts control shared playback here, and viewers see the same state read-only.
               </p>
             </div>
 

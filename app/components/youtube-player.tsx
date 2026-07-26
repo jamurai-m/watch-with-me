@@ -126,6 +126,7 @@ export function YouTubePlayer({ sourceUrl, isPlaying, currentTime, onPlaybackInt
   const currentTimeRef = useRef(currentTime);
   const onPlaybackIntentRef = useRef(onPlaybackIntent);
   const suppressRemoteSyncUntilRef = useRef(0);
+  const playbackIntentTimerRef = useRef<number | null>(null);
   const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
 
   const videoId = useMemo(() => extractYouTubeVideoId(sourceUrl), [sourceUrl]);
@@ -149,6 +150,15 @@ export function YouTubePlayer({ sourceUrl, isPlaying, currentTime, onPlaybackInt
   useEffect(() => {
     onPlaybackIntentRef.current = onPlaybackIntent;
   }, [onPlaybackIntent]);
+
+  useEffect(() => {
+    return () => {
+      if (playbackIntentTimerRef.current !== null) {
+        window.clearTimeout(playbackIntentTimerRef.current);
+        playbackIntentTimerRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     let isActive = true;
@@ -194,13 +204,20 @@ export function YouTubePlayer({ sourceUrl, isPlaying, currentTime, onPlaybackInt
                 const playerState = event.data;
                 const ytPlayerState = window.YT?.PlayerState;
                 const isPlayingState = playerState === ytPlayerState?.PLAYING;
-                const nextCurrentTime = playerRef.current?.getCurrentTime() ?? currentTimeRef.current;
                 if (playerState === ytPlayerState?.PLAYING || playerState === ytPlayerState?.PAUSED || playerState === ytPlayerState?.ENDED || playerState === ytPlayerState?.CUED) {
                   suppressRemoteSyncUntilRef.current = Date.now() + 700;
-                  onPlaybackIntentRef.current?.({
-                    is_playing: isPlayingState,
-                    current_time: Number(nextCurrentTime.toFixed(2)),
-                  });
+                  if (playbackIntentTimerRef.current !== null) {
+                    window.clearTimeout(playbackIntentTimerRef.current);
+                  }
+
+                  playbackIntentTimerRef.current = window.setTimeout(() => {
+                    playbackIntentTimerRef.current = null;
+                    const nextCurrentTime = playerRef.current?.getCurrentTime() ?? currentTimeRef.current;
+                    onPlaybackIntentRef.current?.({
+                      is_playing: isPlayingState,
+                      current_time: Number(nextCurrentTime.toFixed(2)),
+                    });
+                  }, 150);
                 }
               },
             },

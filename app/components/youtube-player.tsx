@@ -90,23 +90,43 @@ function extractYouTubeVideoId(sourceUrl: string): string {
     return trimmedSource;
   }
 
-  try {
-    const url = new URL(trimmedSource);
+  let candidateUrl = trimmedSource;
+  if (!/^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//.test(trimmedSource)) {
+    const isLikelyYoutubeHost = /(?:^|\/)(?:youtu\.be|(?:m|music\.)?youtube\.com|youtube-nocookie\.com)(?:\/|$)/i.test(trimmedSource)
+      || trimmedSource.toLowerCase().includes('youtube.com')
+      || trimmedSource.toLowerCase().includes('youtu.be')
+      || trimmedSource.toLowerCase().includes('youtube-nocookie.com');
 
-    if (url.hostname.includes('youtu.be')) {
+    if (isLikelyYoutubeHost) {
+      candidateUrl = `https://${trimmedSource}`;
+    }
+  }
+
+  try {
+    const url = new URL(candidateUrl);
+    const hostname = url.hostname.toLowerCase();
+
+    const isYouTubeHost = hostname === 'youtu.be'
+      || hostname.endsWith('.youtu.be')
+      || hostname.includes('youtube.com')
+      || hostname.includes('youtube-nocookie.com');
+
+    if (!isYouTubeHost) {
+      return '';
+    }
+
+    if (hostname === 'youtu.be' || hostname.endsWith('.youtu.be')) {
       return url.pathname.split('/').find(Boolean) ?? '';
     }
 
-    if (url.hostname.includes('youtube.com')) {
-      const videoId = url.searchParams.get('v');
-      if (videoId) {
-        return videoId;
-      }
+    const videoId = url.searchParams.get('v');
+    if (videoId) {
+      return videoId;
+    }
 
-      const pathParts = url.pathname.split('/').filter(Boolean);
-      if (pathParts[0] === 'embed' || pathParts[0] === 'shorts') {
-        return pathParts[1] ?? '';
-      }
+    const pathParts = url.pathname.split('/').filter(Boolean);
+    if (pathParts[0] === 'embed' || pathParts[0] === 'shorts' || pathParts[0] === 'live') {
+      return pathParts[1] ?? '';
     }
   } catch {
     return '';

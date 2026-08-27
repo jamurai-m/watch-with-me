@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 type YouTubePlayerProps = {
   sourceUrl: string;
   isPlaying: boolean;
   currentTime: number;
+  canControl: boolean;
+  onPlaybackChange?: (payload: { is_playing?: boolean; current_time?: number }) => void;
 };
 
 type YouTubeApi = {
@@ -113,17 +115,25 @@ function extractYouTubeVideoId(sourceUrl: string): string {
   return '';
 }
 
-export function YouTubePlayer({ sourceUrl, isPlaying, currentTime }: Readonly<YouTubePlayerProps>) {
+export function YouTubePlayer({
+  sourceUrl,
+  isPlaying,
+  currentTime,
+  canControl,
+  onPlaybackChange,
+}: Readonly<YouTubePlayerProps>) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const playerRef = useRef<InstanceType<YouTubeApi['Player']> | null>(null);
   const isPlayingRef = useRef(isPlaying);
   const currentTimeRef = useRef(currentTime);
+  const suppressPlaybackEventUntilRef = useRef(0);
+  const lastReportedPlaybackRef = useRef({ isPlaying, currentTime });
   const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
 
   const videoId = useMemo(() => extractYouTubeVideoId(sourceUrl), [sourceUrl]);
   let statusLabel = 'Waiting for source';
   if (status === 'ready') {
-    statusLabel = 'App-controlled output';
+    statusLabel = canControl ? 'Native controls ready' : 'Viewer mode';
   } else if (status === 'loading') {
     statusLabel = 'Loading...';
   } else if (status === 'error') {
@@ -136,7 +146,47 @@ export function YouTubePlayer({ sourceUrl, isPlaying, currentTime }: Readonly<Yo
 
   useEffect(() => {
     currentTimeRef.current = currentTime;
-  }, [currentTime]);
+    lastReportedPlaybackRef.current = { isPlaying, currentTime };
+  }, [currentTime, isPlaying]);
+
+  const reportPlaybackChange = useCallback((nextIsPlaying: boolean) => {
+    if (typeof window === 'undefined' || Date.now() < suppressPlaybackEventUntilRef.current) {
+      return;
+    }
+
+    const player = playerRef.current;
+    if (!player || !onPlaybackChange) {
+      return;
+    }
+
+    const nextCurrentTime = player.getCurrentTime();
+    const lastReported = lastReportedPlaybackRef.current;
+    if (lastReported.isPlaying === nextIsPlaying && Math.abs(lastReported.currentTime - nextCurrentTime) < 0.5) {
+      return;
+    }
+
+    lastReportedPlaybackRef.current = {
+      isPlaying: nextIsPlaying,
+      currentTime: nextCurrentTime,
+    };
+    onPlaybackChange({ is_playing: nextIsPlaying, current_time: nextCurrentTime });
+  }, [onPlaybackChange]);
+
+  const applyExternalPlaybackState = useCallback((player: InstanceType<YouTubeApi['Player']>) => {
+    suppressPlaybackEventUntilRef.current = Date.now() + 250;
+
+    const desiredCurrentTime = currentTimeRef.current;
+    if (Math.abs(player.getCurrentTime() - desiredCurrentTime) > 1.5) {
+      player.seekTo(desiredCurrentTime, true);
+    }
+
+    if (isPlayingRef.current) {
+      player.playVideo();
+      return;
+    }
+
+    player.pauseVideo();
+  }, []);
 
   useEffect(() => {
     let isActive = true;
@@ -160,8 +210,8 @@ export function YouTubePlayer({ sourceUrl, isPlaying, currentTime }: Readonly<Yo
           playerRef.current = new window.YT.Player(containerRef.current, {
             videoId,
             playerVars: {
-              controls: 0,
-              disablekb: 1,
+              controls: canControl ? 1 : 0,
+              disablekb: canControl ? 0 : 1,
               rel: 0,
               modestbranding: 1,
               playsinline: 1,
@@ -178,21 +228,28 @@ export function YouTubePlayer({ sourceUrl, isPlaying, currentTime }: Readonly<Yo
                   return;
                 }
 
-                const desiredCurrentTime = currentTimeRef.current;
-                if (Math.abs(player.getCurrentTime() - desiredCurrentTime) > 1.5) {
-                  player.seekTo(desiredCurrentTime, true);
+                applyExternalPlaybackState(player);
+              },
+              onStateChange: (event: { data?: number }) => {
+                if (!isActive || !window.YT?.PlayerState) {
+                  return;
                 }
 
-                if (isPlayingRef.current) {
-                  player.playVideo();
-                } else {
-                  player.pauseVideo();
+                if (event.data === window.YT.PlayerState.PLAYING) {
+                  reportPlaybackChange(true);
+                } else if (
+                  event.data === window.YT.PlayerState.PAUSED ||
+                  event.data === window.YT.PlayerState.ENDED ||
+                  event.data === window.YT.PlayerState.CUED
+                ) {
+                  reportPlaybackChange(false);
                 }
               },
             },
           });
         } else {
           playerRef.current.loadVideoById(videoId);
+          applyExternalPlaybackState(playerRef.current);
         }
       })
       .catch(() => {
@@ -204,7 +261,7 @@ export function YouTubePlayer({ sourceUrl, isPlaying, currentTime }: Readonly<Yo
     return () => {
       isActive = false;
     };
-  }, [videoId]);
+  }, [applyExternalPlaybackState, canControl, reportPlaybackChange, videoId]);
 
   useEffect(() => {
     const player = playerRef.current;
@@ -218,16 +275,51 @@ export function YouTubePlayer({ sourceUrl, isPlaying, currentTime }: Readonly<Yo
     }
 
     if (Math.abs(player.getCurrentTime() - currentTime) > 1.5) {
+      suppressPlaybackEventUntilRef.current = Date.now() + 250;
       player.seekTo(currentTime, true);
     }
 
     if (isPlaying) {
+      suppressPlaybackEventUntilRef.current = Date.now() + 250;
       player.playVideo();
       return;
     }
 
+    suppressPlaybackEventUntilRef.current = Date.now() + 250;
     player.pauseVideo();
   }, [currentTime, isPlaying, status, videoId]);
+
+  useEffect(() => {
+    if (status !== 'ready' || !onPlaybackChange) {
+      return undefined;
+    }
+
+    const intervalId = window.setInterval(() => {
+      const player = playerRef.current;
+      if (!player || Date.now() < suppressPlaybackEventUntilRef.current || !window.YT?.PlayerState) {
+        return;
+      }
+
+      const playerState = player.getPlayerState();
+      const currentPlayerTime = player.getCurrentTime();
+      const lastReported = lastReportedPlaybackRef.current;
+      const isCurrentlyPlaying = playerState === window.YT.PlayerState.PLAYING;
+      const threshold = isCurrentlyPlaying ? 5 : 0.75;
+
+      if (Math.abs(currentPlayerTime - lastReported.currentTime) > threshold) {
+        lastReportedPlaybackRef.current = {
+          isPlaying: isCurrentlyPlaying,
+          currentTime: currentPlayerTime,
+        };
+        onPlaybackChange({
+          is_playing: isCurrentlyPlaying,
+          current_time: currentPlayerTime,
+        });
+      }
+    }, 1000);
+
+    return () => window.clearInterval(intervalId);
+  }, [onPlaybackChange, status]);
 
   useEffect(() => {
     return () => {
@@ -241,7 +333,6 @@ export function YouTubePlayer({ sourceUrl, isPlaying, currentTime }: Readonly<Yo
       <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
         <div>
           <p className="text-xs uppercase tracking-[0.3em] text-cyan-400">Live player</p>
-          <p className="mt-1 text-sm text-slate-300">App-owned playback controls drive this surface</p>
         </div>
         <div className="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-400">{statusLabel}</div>
       </div>

@@ -19,12 +19,27 @@ function RoomPageContent() {
   const [errorMessage, setErrorMessage] = useState('');
   const [sourceUrlInput, setSourceUrlInput] = useState('');
   const lastSourceUrlRef = useRef('');
+  const latestPlaybackUpdatedAtRef = useRef('');
+  const pendingPlaybackRef = useRef<{ baselineUpdatedAt: string; requestId: number } | null>(null);
+  const playbackRequestIdRef = useRef(0);
   const websocketRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<number | null>(null);
   const shouldReconnectRef = useRef(true);
 
   const refreshRoom = useCallback(async () => {
     const nextRoomData = await getRoom(room);
+    const incomingUpdatedAt = Date.parse(nextRoomData.playback.updated_at);
+    const latestUpdatedAt = Date.parse(latestPlaybackUpdatedAtRef.current);
+    const pendingPlayback = pendingPlaybackRef.current;
+
+    if (
+      (Number.isFinite(latestUpdatedAt) && incomingUpdatedAt < latestUpdatedAt)
+      || (pendingPlayback && incomingUpdatedAt <= Date.parse(pendingPlayback.baselineUpdatedAt))
+    ) {
+      return;
+    }
+
+    latestPlaybackUpdatedAtRef.current = nextRoomData.playback.updated_at;
     setRoomData(nextRoomData);
   }, [room]);
 
@@ -49,6 +64,17 @@ function RoomPageContent() {
       try {
         const payload = JSON.parse(event.data as string) as { type?: string; room?: RoomResponse };
         if (payload.type === 'room_state' && payload.room) {
+          const incomingUpdatedAt = Date.parse(payload.room.playback.updated_at);
+          const latestUpdatedAt = Date.parse(latestPlaybackUpdatedAtRef.current);
+          const pendingPlayback = pendingPlaybackRef.current;
+          if (
+            (Number.isFinite(latestUpdatedAt) && incomingUpdatedAt < latestUpdatedAt)
+            || (pendingPlayback && incomingUpdatedAt <= Date.parse(pendingPlayback.baselineUpdatedAt))
+          ) {
+            return;
+          }
+
+          latestPlaybackUpdatedAtRef.current = payload.room.playback.updated_at;
           setRoomData(payload.room);
           setErrorMessage('');
         }
@@ -92,6 +118,7 @@ function RoomPageContent() {
       try {
         const nextRoomData = await getRoom(room);
         if (!isMounted) return;
+        latestPlaybackUpdatedAtRef.current = nextRoomData.playback.updated_at;
         setRoomData(nextRoomData);
         setErrorMessage('');
       } catch (error) {
@@ -147,18 +174,44 @@ function RoomPageContent() {
       current_time?: number;
     }) => {
       if (!isHost) return;
+      const requestId = playbackRequestIdRef.current + 1;
+      playbackRequestIdRef.current = requestId;
+      const baselineUpdatedAt = roomData?.playback.updated_at ?? '';
+      pendingPlaybackRef.current = { baselineUpdatedAt, requestId };
+      setRoomData((previousRoomData) => {
+        if (!previousRoomData) {
+          return previousRoomData;
+        }
+
+        return {
+          ...previousRoomData,
+          playback: {
+            ...previousRoomData.playback,
+            ...payload,
+          },
+        };
+      });
       setIsUpdating(true);
       setErrorMessage('');
       try {
         const nextRoomData = await updatePlayback(room, payload);
-        setRoomData(nextRoomData);
+        if (requestId === playbackRequestIdRef.current) {
+          pendingPlaybackRef.current = null;
+          latestPlaybackUpdatedAtRef.current = nextRoomData.playback.updated_at;
+          setRoomData(nextRoomData);
+        }
       } catch (error) {
+        if (requestId === playbackRequestIdRef.current) {
+          pendingPlaybackRef.current = null;
+        }
         setErrorMessage(error instanceof Error ? error.message : 'Unable to update playback.');
       } finally {
-        setIsUpdating(false);
+        if (requestId === playbackRequestIdRef.current) {
+          setIsUpdating(false);
+        }
       }
     },
-    [isHost, room],
+    [isHost, room, roomData?.playback.updated_at],
   );
 
   const loadSource = () => {

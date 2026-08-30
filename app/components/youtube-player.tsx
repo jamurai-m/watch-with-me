@@ -230,7 +230,7 @@ export function YouTubePlayer({
           playerRef.current = new window.YT.Player(containerRef.current, {
             videoId,
             playerVars: {
-              controls: canControl ? 1 : 0,
+              controls: 1,
               disablekb: canControl ? 0 : 1,
               rel: 0,
               modestbranding: 1,
